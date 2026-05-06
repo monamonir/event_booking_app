@@ -17,10 +17,7 @@ import 'package:flutter/foundation.dart'
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
-      throw UnsupportedError(
-        'DefaultFirebaseOptions have not been configured for web - '
-        'you can reconfigure this by running the FlutterFire CLI again.',
-      );
+      return web;
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
@@ -52,11 +49,21 @@ class DefaultFirebaseOptions {
     }
   }
 
+  static const FirebaseOptions web = FirebaseOptions(
+    apiKey: 'AIzaSyALsWjwbrph_ZAcnNnzUyeGQoCiYriTdJE',
+    appId: '1:45545970584:web:809b408904a38aeacd29ed',
+    messagingSenderId: '45545970584',
+    projectId: 'event-app-77d2a',
+    authDomain: 'event-app-77d2a.firebaseapp.com',
+    storageBucket: 'event-app-77d2a.firebasestorage.app',
+    measurementId: 'G-KQEM1WG3E3',
+  );
+
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyBXnvwnAvAUf9QhZBVrLdV-pyq9P22HKzU',
-    appId: '1:33996887463:android:51a67cdb142a5375955282',
-    messagingSenderId: '33996887463',
-    projectId: 'eventbookingapp-8e12f',
-    storageBucket: 'eventbookingapp-8e12f.firebasestorage.app',
+    apiKey: 'AIzaSyAe8hpwgUSKWXZe6ATjnSnG2wlVHfDa8So',
+    appId: '1:45545970584:android:b03bc4def8922b22cd29ed',
+    messagingSenderId: '45545970584',
+    projectId: 'event-app-77d2a',
+    storageBucket: 'event-app-77d2a.firebasestorage.app',
   );
 }

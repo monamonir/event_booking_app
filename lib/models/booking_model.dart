@@ -1,0 +1,29 @@
+import 'event_model.dart';
+
+class Booking {
+  final String id;
+  final Event event;
+  final DateTime bookedAt;
+
+  Booking({
+    required this.id,
+    required this.event,
+    required this.bookedAt,
+  });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'event': event.toMap(),
+      'bookedAt': bookedAt.toIso8601String(),
+    };
+  }
+
+  factory Booking.fromMap(Map<String, dynamic> map) {
+    return Booking(
+      id: map['id'],
+      event: Event.fromMap(map['event']),
+      bookedAt: DateTime.parse(map['bookedAt']),
+    );
+  }
+}
