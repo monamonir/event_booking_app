@@ -5,6 +5,7 @@ import '../services/api_service.dart';
 import '../services/booking_service.dart';
 import '../services/auth_service.dart';
 import '../widgets/event_card.dart';
+import '../widgets/shope_event_card.dart'; // ✅ External component from Shope template
 import 'event_details_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -21,7 +22,6 @@ class _HomeScreenState extends State<HomeScreen>
   Set<int> _bookedIds = {};
   bool _loading = true;
   String _selectedCategory = 'All';
-  // FocusNode keeps keyboard behavior isolated from IndexedStack
   final _searchFocus = FocusNode();
   final _searchCtrl = TextEditingController();
 
@@ -36,7 +36,6 @@ class _HomeScreenState extends State<HomeScreen>
     'Sports'
   ];
 
-  // Keeps this tab alive in IndexedStack so state is preserved
   @override
   bool get wantKeepAlive => true;
 
@@ -61,7 +60,6 @@ class _HomeScreenState extends State<HomeScreen>
     if (uid == null) return;
     setState(() => _loading = true);
     final events = await ApiService.fetchEvents();
-    // Pass uid so bookings are scoped to the current user only
     final bookings = await BookingService.loadBookings(uid);
     if (mounted) {
       setState(() {
@@ -90,7 +88,6 @@ class _HomeScreenState extends State<HomeScreen>
   Future<void> _bookEvent(Event event) async {
     final uid = _uid;
     if (uid == null) return;
-    // Pass uid so the booking is stored under this user only
     await BookingService.addBooking(event, uid);
     setState(() => _bookedIds.add(event.id));
     if (mounted) {
@@ -107,13 +104,32 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
+  // Shared navigation helper used by both ShopeEventCard and EventCard
+  void _navigateToDetails(Event event) async {
+    _searchFocus.unfocus();
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => EventDetailsScreen(event: event)),
+    );
+    // Refresh booked state on return
+    final uid = _uid;
+    if (uid != null && mounted) {
+      final bookings = await BookingService.loadBookings(uid);
+      setState(() {
+        _bookedIds = bookings.map((b) => b.event.id).toSet().cast<int>();
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    super.build(context); // required by AutomaticKeepAliveClientMixin
+    super.build(context);
     final user = AuthService().currentUser;
 
+    // First 4 events shown in the Shope-style featured row
+    final featuredEvents = _allEvents.take(4).toList();
+
     return Scaffold(
-      // resizeToAvoidBottomInset lets the keyboard push content up properly
       resizeToAvoidBottomInset: true,
       backgroundColor: const Color(0xFFF8F9FE),
       body: SafeArea(
@@ -121,15 +137,16 @@ class _HomeScreenState extends State<HomeScreen>
           onRefresh: _loadData,
           color: const Color(0xFF6C63FF),
           child: CustomScrollView(
-            // Dismiss keyboard when scrolling
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             slivers: [
+              // ── Header + Featured section ──────────────────────────────────
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Greeting
                       Row(
                         children: [
                           Expanded(
@@ -159,14 +176,16 @@ class _HomeScreenState extends State<HomeScreen>
                               color: const Color(0xFF6C63FF).withOpacity(0.1),
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            child: const Icon(Icons.notifications_none_rounded,
-                                color: Color(0xFF6C63FF)),
+                            child: const Icon(
+                              Icons.notifications_none_rounded,
+                              color: Color(0xFF6C63FF),
+                            ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 16),
 
-                      // Search bar with explicit focusNode for reliable keyboard
+                      // Search bar
                       TextField(
                         controller: _searchCtrl,
                         focusNode: _searchFocus,
@@ -193,11 +212,75 @@ class _HomeScreenState extends State<HomeScreen>
                             borderRadius: BorderRadius.circular(14),
                             borderSide: BorderSide.none,
                           ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide.none,
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: const BorderSide(
+                                color: Color(0xFF6C63FF), width: 1.5),
+                          ),
                           contentPadding: const EdgeInsets.symmetric(
                               horizontal: 16, vertical: 14),
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 20),
+
+                      // ── Featured Events row (Shope component) ──────────────
+                      // Uses ShopeEventCard adapted from:
+                      // Shope Flutter Ecommerce Template by robertodevs
+                      // https://github.com/robertodevs/flutter_ecommerce_template
+                      // License: MIT
+                      if (!_loading && featuredEvents.isNotEmpty) ...[
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'Featured Events',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF1A1A2E),
+                              ),
+                            ),
+                            GestureDetector(
+                              onTap: () {
+                                // Reset to All category to show everything
+                                setState(() => _selectedCategory = 'All');
+                                _applyFilter();
+                              },
+                              child: Text(
+                                'See all',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color:
+                                      const Color(0xFF6C63FF).withOpacity(0.8),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          height: 200,
+                          child: ListView.separated(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: featuredEvents.length,
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(width: 12),
+                            itemBuilder: (context, index) {
+                              final event = featuredEvents[index];
+                              return ShopeEventCard(
+                                event: event,
+                                onTap: () => _navigateToDetails(event),
+                              );
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                      ],
 
                       // Category chips
                       SizedBox(
@@ -238,6 +321,7 @@ class _HomeScreenState extends State<HomeScreen>
                         ),
                       ),
                       const SizedBox(height: 12),
+
                       Text(
                         '${_filtered.length} events found',
                         style:
@@ -248,6 +332,8 @@ class _HomeScreenState extends State<HomeScreen>
                   ),
                 ),
               ),
+
+              // ── All Events list (your custom EventCard) ────────────────────
               if (_loading)
                 const SliverToBoxAdapter(
                   child: Padding(
@@ -285,29 +371,7 @@ class _HomeScreenState extends State<HomeScreen>
                         return EventCard(
                           event: event,
                           isBooked: _bookedIds.contains(event.id),
-                          onTap: () async {
-                            // Dismiss keyboard before navigating
-                            _searchFocus.unfocus();
-                            await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    EventDetailsScreen(event: event),
-                              ),
-                            );
-                            // Refresh booked state when returning from details
-                            final uid = _uid;
-                            if (uid != null && mounted) {
-                              final bookings =
-                                  await BookingService.loadBookings(uid);
-                              setState(() {
-                                _bookedIds = bookings
-                                    .map((b) => b.event.id)
-                                    .toSet()
-                                    .cast<int>();
-                              });
-                            }
-                          },
+                          onTap: () => _navigateToDetails(event),
                           onBook: _bookedIds.contains(event.id)
                               ? null
                               : () => _bookEvent(event),
@@ -317,6 +381,7 @@ class _HomeScreenState extends State<HomeScreen>
                     ),
                   ),
                 ),
+
               const SliverToBoxAdapter(child: SizedBox(height: 20)),
             ],
           ),
