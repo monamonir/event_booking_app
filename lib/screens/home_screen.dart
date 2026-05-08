@@ -60,7 +60,7 @@ class _HomeScreenState extends State<HomeScreen>
     if (uid == null) return;
     setState(() => _loading = true);
     final events = await ApiService.fetchEvents();
-    final bookings = await BookingService.loadBookings(uid);
+    final bookings = await BookingService.getBookings(uid);
     if (mounted) {
       setState(() {
         _allEvents = events;
@@ -88,7 +88,7 @@ class _HomeScreenState extends State<HomeScreen>
   Future<void> _bookEvent(Event event) async {
     final uid = _uid;
     if (uid == null) return;
-    await BookingService.addBooking(event, uid);
+    await BookingService.bookEvent(event, uid);
     setState(() => _bookedIds.add(event.id));
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -114,7 +114,7 @@ class _HomeScreenState extends State<HomeScreen>
     // Refresh booked state on return
     final uid = _uid;
     if (uid != null && mounted) {
-      final bookings = await BookingService.loadBookings(uid);
+      final bookings = await BookingService.getBookings(uid);
       setState(() {
         _bookedIds = bookings.map((b) => b.event.id).toSet().cast<int>();
       });

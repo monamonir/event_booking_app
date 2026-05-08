@@ -18,13 +18,21 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme =
+        ColorScheme.fromSeed(seedColor: const Color(0xFF6C63FF));
+    final baseTextTheme = ThemeData(
+      colorScheme: colorScheme,
+      useMaterial3: true,
+    ).textTheme;
+
     return MaterialApp(
       title: 'Event Booking',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         fontFamily: 'Poppins',
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF6C63FF)),
+        colorScheme: colorScheme,
         useMaterial3: true,
+        textTheme: baseTextTheme.apply(fontFamily: 'Poppins'),
       ),
       home: StreamBuilder<User?>(
         stream: FirebaseAuth.instance.authStateChanges(),

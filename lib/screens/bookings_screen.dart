@@ -26,7 +26,7 @@ class _BookingsScreenState extends State<BookingsScreen> {
     if (user == null) return;
 
     setState(() => _loading = true);
-    final bookings = await BookingService.loadBookings(user.uid);
+    final bookings = await BookingService.getBookings(user.uid);
     if (mounted) {
       setState(() {
         _bookings = bookings;

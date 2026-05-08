@@ -21,9 +21,11 @@ class Booking {
 
   factory Booking.fromMap(Map<String, dynamic> map) {
     return Booking(
-      id: map['id'],
-      event: Event.fromMap(map['event']),
-      bookedAt: DateTime.parse(map['bookedAt']),
+      id: map['id'].toString(),
+      event: Event.fromMap(
+        Map<String, dynamic>.from(map['event'] as Map),
+      ),
+      bookedAt: DateTime.parse(map['bookedAt'].toString()),
     );
   }
 }

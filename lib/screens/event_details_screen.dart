@@ -35,7 +35,7 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
     if (user == null) return;
 
     setState(() => _loading = true);
-    await BookingService.addBooking(widget.event, user.uid);
+    await BookingService.bookEvent(widget.event, user.uid);
     if (mounted) {
       setState(() {
         _isBooked = true;

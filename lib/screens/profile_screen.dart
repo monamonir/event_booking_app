@@ -48,7 +48,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     // Use a per-user key so different users don't share the same photo
     final path = prefs.getString('profile_image_path_$uid');
     // Pass uid so we only count this user's bookings
-    final bookings = await BookingService.loadBookings(uid);
+    final bookings = await BookingService.getBookings(uid);
 
     if (mounted) {
       setState(() {
