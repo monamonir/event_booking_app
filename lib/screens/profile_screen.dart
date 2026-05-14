@@ -30,8 +30,8 @@ class _ProfileScreenState extends State<ProfileScreen>
     _loadData();
   }
 
-  // Called every time this widget is rebuilt (including tab switches in
-  // IndexedStack) — this is what makes bookings update without a logout.
+  // Called when the widget is updated; tab switches recreate this screen
+  // (see MainScreen body), so booking count refreshes when returning to Profile.
   @override
   void didUpdateWidget(covariant ProfileScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -61,8 +61,8 @@ class _ProfileScreenState extends State<ProfileScreen>
   Future<void> _pickImage(ImageSource source) async {
     final uid = _uid;
     if (uid == null) return;
+    final picker = ImagePicker();
     try {
-      final picker = ImagePicker();
       final picked = await picker.pickImage(
         source: source,
         maxWidth: 512,
@@ -76,9 +76,22 @@ class _ProfileScreenState extends State<ProfileScreen>
         if (mounted) setState(() => _imagePath = picked.path);
       }
     } catch (e) {
-      if (mounted) {
+      if (!mounted) return;
+      if (source == ImageSource.camera) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not access camera: $e')),
+          SnackBar(
+            content: Text(
+              'Camera unavailable ($e). You can pick from the gallery instead.',
+            ),
+            action: SnackBarAction(
+              label: 'Gallery',
+              onPressed: () => _pickImage(ImageSource.gallery),
+            ),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not pick image: $e')),
         );
       }
     }

@@ -1,7 +1,18 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart'; // Added for UID
+import 'package:intl/intl.dart';
 import '../models/event_model.dart';
 import '../services/booking_service.dart';
+
+String formatDate(String dateStr) {
+  try {
+    final date = DateTime.parse(dateStr);
+    return DateFormat('MMM dd, yyyy').format(date);
+  } catch (_) {
+    return dateStr;
+  }
+}
 
 class EventDetailsScreen extends StatefulWidget {
   final Event event;
@@ -34,49 +45,24 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
+    if (!mounted) return;
     setState(() => _loading = true);
     await BookingService.bookEvent(widget.event, user.uid);
-    if (mounted) {
-      setState(() {
-        _isBooked = true;
-        _loading = false;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('🎉 Event booked successfully!'),
-          backgroundColor: Colors.green,
-          behavior: SnackBarBehavior.floating,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        ),
-      );
-    }
-  }
-
-  String _formatDate(String date) {
-    try {
-      final parts = date.split('-');
-      if (parts.length == 3) {
-        const months = [
-          '',
-          'January',
-          'February',
-          'March',
-          'April',
-          'May',
-          'June',
-          'July',
-          'August',
-          'September',
-          'October',
-          'November',
-          'December'
-        ];
-        final month = int.tryParse(parts[1]) ?? 1;
-        return '${months[month]} ${parts[2]}, ${parts[0]}';
-      }
-    } catch (_) {}
-    return date;
+    if (!mounted) return;
+    setState(() {
+      _isBooked = true;
+      _loading = false;
+    });
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('🎉 Event booked successfully!'),
+        backgroundColor: Colors.green,
+        behavior: SnackBarBehavior.floating,
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
   }
 
   @override
@@ -106,14 +92,25 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
                   ),
                 ),
                 flexibleSpace: FlexibleSpaceBar(
-                  background: Image.network(
-                    event.imageUrl,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
-                      color: const Color(0xFF6C63FF).withOpacity(0.3),
-                      child: const Icon(Icons.event,
-                          size: 80, color: Colors.white54),
-                    ),
+                  background: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      CachedNetworkImage(
+                        imageUrl: event.imageUrl,
+                        fit: BoxFit.cover,
+                        placeholder: (context, url) => Container(
+                          color: Colors.grey[200],
+                          child: const Center(
+                            child: CircularProgressIndicator(),
+                          ),
+                        ),
+                        errorWidget: (context, url, error) => Container(
+                          color: const Color(0xFF6C63FF).withOpacity(0.2),
+                          child: const Icon(Icons.event,
+                              color: Color(0xFF6C63FF)),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -156,7 +153,7 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
                             child: _InfoCard(
                               icon: Icons.calendar_today_rounded,
                               label: 'Date',
-                              value: _formatDate(event.date),
+                              value: formatDate(event.date),
                             ),
                           ),
                           const SizedBox(width: 12),

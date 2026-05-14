@@ -9,6 +9,7 @@
 ///     onBook: () => bookEvent(),
 ///   )
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import '../models/event_model.dart';
 
@@ -78,28 +79,24 @@ class EventCard extends StatelessWidget {
                 ClipRRect(
                   borderRadius:
                       const BorderRadius.vertical(top: Radius.circular(18)),
-                  child: Image.network(
-                    event.imageUrl,
+                  child: SizedBox(
                     height: 170,
                     width: double.infinity,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
-                      height: 170,
-                      color: const Color(0xFF6C63FF).withOpacity(0.15),
-                      child: const Icon(Icons.event,
-                          size: 56, color: Colors.white54),
-                    ),
-                    loadingBuilder: (context, child, progress) {
-                      if (progress == null) return child;
-                      return Container(
-                        height: 170,
-                        color: Colors.grey.shade100,
+                    child: CachedNetworkImage(
+                      imageUrl: event.imageUrl,
+                      fit: BoxFit.cover,
+                      placeholder: (context, url) => Container(
+                        color: Colors.grey[200],
                         child: const Center(
-                          child: CircularProgressIndicator(
-                              color: Color(0xFF6C63FF), strokeWidth: 2),
+                          child: CircularProgressIndicator(),
                         ),
-                      );
-                    },
+                      ),
+                      errorWidget: (context, url, error) => Container(
+                        color: const Color(0xFF6C63FF).withOpacity(0.2),
+                        child: const Icon(Icons.event,
+                            color: Color(0xFF6C63FF)),
+                      ),
+                    ),
                   ),
                 ),
                 // Category badge

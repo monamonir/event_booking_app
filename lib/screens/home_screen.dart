@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:carousel_slider/carousel_slider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/event_model.dart';
 import '../services/api_service.dart';
@@ -15,8 +16,10 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen>
-    with AutomaticKeepAliveClientMixin {
+class _HomeScreenState extends State<HomeScreen> {
+  /// Avoids refetching the event catalog when the Home tab is recreated.
+  static List<Event>? _sessionEventsCache;
+
   List<Event> _allEvents = [];
   List<Event> _filtered = [];
   Set<int> _bookedIds = {};
@@ -37,9 +40,6 @@ class _HomeScreenState extends State<HomeScreen>
   ];
 
   @override
-  bool get wantKeepAlive => true;
-
-  @override
   void initState() {
     super.initState();
     _loadData();
@@ -55,33 +55,45 @@ class _HomeScreenState extends State<HomeScreen>
 
   String? get _uid => FirebaseAuth.instance.currentUser?.uid;
 
-  Future<void> _loadData() async {
+  Future<void> _loadData({bool forceRefreshEvents = false}) async {
     final uid = _uid;
     if (uid == null) return;
-    setState(() => _loading = true);
-    final events = await ApiService.fetchEvents();
-    final bookings = await BookingService.getBookings(uid);
     if (mounted) {
-      setState(() {
-        _allEvents = events;
-        _bookedIds = bookings.map((b) => b.event.id).toSet().cast<int>();
-        _applyFilter();
-        _loading = false;
-      });
+      setState(() => _loading = true);
     }
+    final List<Event> events;
+    if (!forceRefreshEvents && _sessionEventsCache != null) {
+      events = _sessionEventsCache!;
+    } else {
+      events = await ApiService.fetchEvents(forceRefresh: forceRefreshEvents);
+      _sessionEventsCache = List<Event>.from(events);
+    }
+    final bookings = await BookingService.getBookings(uid);
+    if (!mounted) return;
+    setState(() {
+      _allEvents = events;
+      _bookedIds = bookings.map((b) => b.event.id).toSet();
+      _filtered = _computeFiltered();
+      _loading = false;
+    });
+  }
+
+  List<Event> _computeFiltered() {
+    final query = _searchCtrl.text.toLowerCase();
+    return _allEvents.where((e) {
+      final matchCat =
+          _selectedCategory == 'All' || e.category == _selectedCategory;
+      final matchSearch = query.isEmpty ||
+          e.title.toLowerCase().contains(query) ||
+          e.location.toLowerCase().contains(query);
+      return matchCat && matchSearch;
+    }).toList();
   }
 
   void _applyFilter() {
-    final query = _searchCtrl.text.toLowerCase();
+    if (!mounted) return;
     setState(() {
-      _filtered = _allEvents.where((e) {
-        final matchCat =
-            _selectedCategory == 'All' || e.category == _selectedCategory;
-        final matchSearch = query.isEmpty ||
-            e.title.toLowerCase().contains(query) ||
-            e.location.toLowerCase().contains(query);
-        return matchCat && matchSearch;
-      }).toList();
+      _filtered = _computeFiltered();
     });
   }
 
@@ -89,6 +101,7 @@ class _HomeScreenState extends State<HomeScreen>
     final uid = _uid;
     if (uid == null) return;
     await BookingService.bookEvent(event, uid);
+    if (!mounted) return;
     setState(() => _bookedIds.add(event.id));
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -115,15 +128,15 @@ class _HomeScreenState extends State<HomeScreen>
     final uid = _uid;
     if (uid != null && mounted) {
       final bookings = await BookingService.getBookings(uid);
+      if (!mounted) return;
       setState(() {
-        _bookedIds = bookings.map((b) => b.event.id).toSet().cast<int>();
+        _bookedIds = bookings.map((b) => b.event.id).toSet();
       });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    super.build(context);
     final user = AuthService().currentUser;
 
     // First 4 events shown in the Shope-style featured row
@@ -134,7 +147,7 @@ class _HomeScreenState extends State<HomeScreen>
       backgroundColor: const Color(0xFFF8F9FE),
       body: SafeArea(
         child: RefreshIndicator(
-          onRefresh: _loadData,
+          onRefresh: () => _loadData(forceRefreshEvents: true),
           color: const Color(0xFF6C63FF),
           child: CustomScrollView(
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
@@ -247,6 +260,7 @@ class _HomeScreenState extends State<HomeScreen>
                             GestureDetector(
                               onTap: () {
                                 // Reset to All category to show everything
+                                if (!mounted) return;
                                 setState(() => _selectedCategory = 'All');
                                 _applyFilter();
                               },
@@ -294,6 +308,7 @@ class _HomeScreenState extends State<HomeScreen>
                             final selected = cat == _selectedCategory;
                             return GestureDetector(
                               onTap: () {
+                                if (!mounted) return;
                                 setState(() => _selectedCategory = cat);
                                 _applyFilter();
                               },
@@ -345,39 +360,120 @@ class _HomeScreenState extends State<HomeScreen>
                   ),
                 )
               else if (_filtered.isEmpty)
-                const SliverToBoxAdapter(
+                SliverToBoxAdapter(
                   child: Padding(
-                    padding: EdgeInsets.only(top: 60),
+                    padding: const EdgeInsets.only(top: 60),
                     child: Center(
                       child: Column(
-                        children: [
-                          Icon(Icons.search_off_rounded,
-                              size: 60, color: Colors.grey),
+                        children: const [
+                          Icon(
+                            Icons.search_off_rounded,
+                            size: 60,
+                            color: Colors.grey,
+                          ),
                           SizedBox(height: 12),
-                          Text('No events found',
-                              style: TextStyle(color: Colors.grey)),
+                          Text(
+                            'No events found',
+                            style: TextStyle(color: Colors.grey),
+                          ),
                         ],
                       ),
                     ),
                   ),
                 )
               else
-                SliverPadding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  sliver: SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                        final event = _filtered[index];
-                        return EventCard(
-                          event: event,
-                          isBooked: _bookedIds.contains(event.id),
-                          onTap: () => _navigateToDetails(event),
-                          onBook: _bookedIds.contains(event.id)
-                              ? null
-                              : () => _bookEvent(event),
-                        );
-                      },
-                      childCount: _filtered.length,
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: SingleChildScrollView(
+                      physics: const NeverScrollableScrollPhysics(),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          if (_filtered.isNotEmpty) ...[
+                            CarouselSlider(
+                              options: CarouselOptions(
+                                height: 200,
+                                autoPlay: true,
+                                autoPlayInterval:
+                                    const Duration(seconds: 3),
+                                enlargeCenterPage: true,
+                                viewportFraction: 0.85,
+                              ),
+                              items: _filtered.take(5).map((event) {
+                                return GestureDetector(
+                                  onTap: () => _navigateToDetails(event),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(16),
+                                    child: Stack(
+                                      fit: StackFit.expand,
+                                      children: [
+                                        Image.network(
+                                          event.imageUrl,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (_, __, ___) =>
+                                              Container(
+                                            color: const Color(0xFF6C63FF)
+                                                .withValues(alpha: 0.25),
+                                            child: const Icon(Icons.event,
+                                                size: 48,
+                                                color: Colors.white54),
+                                          ),
+                                        ),
+                                        Container(
+                                          decoration: BoxDecoration(
+                                            gradient: LinearGradient(
+                                              begin: Alignment.topCenter,
+                                              end: Alignment.bottomCenter,
+                                              colors: [
+                                                Colors.transparent,
+                                                Colors.black
+                                                    .withValues(alpha: 0.7),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                        Positioned(
+                                          bottom: 12,
+                                          left: 12,
+                                          right: 12,
+                                          child: Text(
+                                            event.title,
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 14,
+                                            ),
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                            const SizedBox(height: 16),
+                          ],
+                          ListView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: _filtered.length,
+                            itemBuilder: (context, index) {
+                              final event = _filtered[index];
+                              return EventCard(
+                                event: event,
+                                isBooked: _bookedIds.contains(event.id),
+                                onTap: () => _navigateToDetails(event),
+                                onBook: _bookedIds.contains(event.id)
+                                    ? null
+                                    : () => _bookEvent(event),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),

@@ -2,7 +2,11 @@ import 'package:http/http.dart' as http;
 import '../models/event_model.dart';
 
 class ApiService {
-  static Future<List<Event>> fetchEvents() async {
+  static List<Event>? _cache;
+
+  static Future<List<Event>> fetchEvents({bool forceRefresh = false}) async {
+    if (forceRefresh) _cache = null;
+    if (_cache != null) return _cache!;
     try {
       // Ping the API to satisfy the "API call" requirement
       await http
@@ -11,10 +15,11 @@ class ApiService {
     } catch (_) {
       // Network unavailable — fall through to mock data below
     }
-    return _mockEvents;
+    _cache = List<Event>.unmodifiable(_mockEvents);
+    return _cache!;
   }
 
-  static final List<Event> _mockEvents = [
+  static const List<Event> _mockEvents = [
     Event(
       id: 1,
       title: 'Flutter & Firebase Summit 2026',

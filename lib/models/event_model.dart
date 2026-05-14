@@ -10,7 +10,7 @@ class Event {
   final double price;
   final int capacity;
 
-  Event({
+  const Event({
     required this.id,
     required this.title,
     required this.description,

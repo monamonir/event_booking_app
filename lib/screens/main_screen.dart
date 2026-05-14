@@ -13,28 +13,25 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
 
-  // Screens are defined once so IndexedStack keeps them alive
-  final List<Widget> _screens = const [
-    HomeScreen(),
-    BookingsScreen(),
-    ProfileScreen(),
-  ];
-
   void _onTabTapped(int index) {
     // Dismiss keyboard whenever the user switches tabs
     FocusManager.instance.primaryFocus?.unfocus();
+    if (!mounted) return;
     setState(() => _currentIndex = index);
   }
 
   @override
   Widget build(BuildContext context) {
+    final body = _currentIndex == 0
+        ? const HomeScreen()
+        : _currentIndex == 1
+            ? const BookingsScreen()
+            : const ProfileScreen();
+
     return Scaffold(
       // Must be true so keyboard pushes content up on every screen
       resizeToAvoidBottomInset: true,
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
-      ),
+      body: body,
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: _onTabTapped,

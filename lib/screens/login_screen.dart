@@ -64,8 +64,15 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Column(
                 children: [
                   // Logo area
-                  const Icon(Icons.event_available_rounded,
-                      color: Colors.white, size: 72),
+                  Image.asset(
+                    'assets/images/logo.png',
+                    height: 80,
+                    errorBuilder: (_, __, ___) => const Icon(
+                      Icons.event,
+                      size: 80,
+                      color: Colors.white,
+                    ),
+                  ),
                   const SizedBox(height: 12),
                   const Text('EventBook',
                       style: TextStyle(
