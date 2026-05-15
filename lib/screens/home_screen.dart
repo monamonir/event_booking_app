@@ -4,7 +4,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../models/event_model.dart';
 import '../services/api_service.dart';
 import '../services/booking_service.dart';
-import '../services/auth_service.dart';
 import '../widgets/event_card.dart';
 import '../widgets/shope_event_card.dart'; // ✅ External component from Shope template
 import 'event_details_screen.dart';
@@ -137,11 +136,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final user = AuthService().currentUser;
-
-    // First 4 events shown in the Shope-style featured row
-    final featuredEvents = _allEvents.take(4).toList();
-
     return Scaffold(
       resizeToAvoidBottomInset: true,
       backgroundColor: const Color(0xFFF8F9FE),
@@ -159,45 +153,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Greeting
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Hello, ${user?.displayName?.split(' ').first ?? 'Explorer'} 👋',
-                                  style: const TextStyle(
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF1A1A2E),
-                                  ),
-                                ),
-                                const Text(
-                                  'Find your next event',
-                                  style: TextStyle(
-                                      fontSize: 14, color: Colors.grey),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Container(
-                            width: 42,
-                            height: 42,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF6C63FF).withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Icon(
-                              Icons.notifications_none_rounded,
-                              color: Color(0xFF6C63FF),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-
                       // Search bar
                       TextField(
                         controller: _searchCtrl,
@@ -240,58 +195,30 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       const SizedBox(height: 20),
 
-                      // ── Featured Events row (Shope component) ──────────────
-                      // Uses ShopeEventCard adapted from:
-                      // Shope Flutter Ecommerce Template by robertodevs
-                      // https://github.com/robertodevs/flutter_ecommerce_template
-                      // License: MIT
-                      if (!_loading && featuredEvents.isNotEmpty) ...[
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text(
-                              'Featured Events',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF1A1A2E),
-                              ),
-                            ),
-                            GestureDetector(
-                              onTap: () {
-                                // Reset to All category to show everything
-                                if (!mounted) return;
-                                setState(() => _selectedCategory = 'All');
-                                _applyFilter();
-                              },
-                              child: Text(
-                                'See all',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color:
-                                      const Color(0xFF6C63FF).withOpacity(0.8),
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ],
+                      if (!_loading && _allEvents.isNotEmpty) ...[
+                        const Text(
+                          'Featured Events',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF1A1A2E),
+                          ),
                         ),
                         const SizedBox(height: 12),
-                        SizedBox(
-                          height: 200,
-                          child: ListView.separated(
-                            scrollDirection: Axis.horizontal,
-                            itemCount: featuredEvents.length,
-                            separatorBuilder: (_, __) =>
-                                const SizedBox(width: 12),
-                            itemBuilder: (context, index) {
-                              final event = featuredEvents[index];
-                              return ShopeEventCard(
-                                event: event,
-                                onTap: () => _navigateToDetails(event),
-                              );
-                            },
+                        CarouselSlider(
+                          options: CarouselOptions(
+                            height: 200,
+                            autoPlay: true,
+                            autoPlayInterval: const Duration(seconds: 3),
+                            enlargeCenterPage: true,
+                            viewportFraction: 0.85,
                           ),
+                          items: _allEvents.take(5).map((event) {
+                            return ShopeEventCard(
+                              event: event,
+                              onTap: () => _navigateToDetails(event),
+                            );
+                          }).toList(),
                         ),
                         const SizedBox(height: 20),
                       ],
@@ -385,95 +312,21 @@ class _HomeScreenState extends State<HomeScreen> {
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: SingleChildScrollView(
+                    child: ListView.builder(
+                      shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          if (_filtered.isNotEmpty) ...[
-                            CarouselSlider(
-                              options: CarouselOptions(
-                                height: 200,
-                                autoPlay: true,
-                                autoPlayInterval:
-                                    const Duration(seconds: 3),
-                                enlargeCenterPage: true,
-                                viewportFraction: 0.85,
-                              ),
-                              items: _filtered.take(5).map((event) {
-                                return GestureDetector(
-                                  onTap: () => _navigateToDetails(event),
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(16),
-                                    child: Stack(
-                                      fit: StackFit.expand,
-                                      children: [
-                                        Image.network(
-                                          event.imageUrl,
-                                          fit: BoxFit.cover,
-                                          errorBuilder: (_, __, ___) =>
-                                              Container(
-                                            color: const Color(0xFF6C63FF)
-                                                .withValues(alpha: 0.25),
-                                            child: const Icon(Icons.event,
-                                                size: 48,
-                                                color: Colors.white54),
-                                          ),
-                                        ),
-                                        Container(
-                                          decoration: BoxDecoration(
-                                            gradient: LinearGradient(
-                                              begin: Alignment.topCenter,
-                                              end: Alignment.bottomCenter,
-                                              colors: [
-                                                Colors.transparent,
-                                                Colors.black
-                                                    .withValues(alpha: 0.7),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                        Positioned(
-                                          bottom: 12,
-                                          left: 12,
-                                          right: 12,
-                                          child: Text(
-                                            event.title,
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 14,
-                                            ),
-                                            maxLines: 2,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                );
-                              }).toList(),
-                            ),
-                            const SizedBox(height: 16),
-                          ],
-                          ListView.builder(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            itemCount: _filtered.length,
-                            itemBuilder: (context, index) {
-                              final event = _filtered[index];
-                              return EventCard(
-                                event: event,
-                                isBooked: _bookedIds.contains(event.id),
-                                onTap: () => _navigateToDetails(event),
-                                onBook: _bookedIds.contains(event.id)
-                                    ? null
-                                    : () => _bookEvent(event),
-                              );
-                            },
-                          ),
-                        ],
-                      ),
+                      itemCount: _filtered.length,
+                      itemBuilder: (context, index) {
+                        final event = _filtered[index];
+                        return EventCard(
+                          event: event,
+                          isBooked: _bookedIds.contains(event.id),
+                          onTap: () => _navigateToDetails(event),
+                          onBook: _bookedIds.contains(event.id)
+                              ? null
+                              : () => _bookEvent(event),
+                        );
+                      },
                     ),
                   ),
                 ),
