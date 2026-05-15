@@ -23,18 +23,22 @@ class BookingsScreen extends StatefulWidget {
 }
 
 class BookingsScreenState extends State<BookingsScreen> {
-  Future<List<Booking>>? _bookingsFuture;
+  static List<Booking> _cachedBookings = [];
+
+  late Future<List<Booking>> _bookingsFuture;
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _bookingsFuture ??= _loadBookings();
+  void initState() {
+    super.initState();
+    _bookingsFuture = _loadBookings();
   }
 
   Future<List<Booking>> _loadBookings() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return [];
-    return BookingService.getBookings(user.uid);
+    final bookings = await BookingService.getBookings(user.uid);
+    _cachedBookings = bookings;
+    return bookings;
   }
 
   /// Reloads bookings from Firestore and triggers a rebuild when complete.
@@ -261,8 +265,8 @@ class BookingsScreenState extends State<BookingsScreen> {
           FutureBuilder<List<Booking>>(
             future: _bookingsFuture,
             builder: (context, snapshot) {
-              final list = snapshot.data;
-              if (list == null || list.isEmpty) {
+              final list = snapshot.data ?? _cachedBookings;
+              if (list.isEmpty) {
                 return const SizedBox.shrink();
               }
               return TextButton(
@@ -278,7 +282,8 @@ class BookingsScreenState extends State<BookingsScreen> {
         future: _bookingsFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting &&
-              !snapshot.hasData) {
+              !snapshot.hasData &&
+              _cachedBookings.isEmpty) {
             return const Center(
                 child: CircularProgressIndicator(color: Color(0xFF6C63FF)));
           }
@@ -287,7 +292,7 @@ class BookingsScreenState extends State<BookingsScreen> {
               child: Text('Could not load bookings: ${snapshot.error}'),
             );
           }
-          final bookings = snapshot.data ?? [];
+          final bookings = snapshot.data ?? _cachedBookings;
           if (bookings.isEmpty) {
             return Center(
               child: Column(

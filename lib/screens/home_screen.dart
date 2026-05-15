@@ -16,8 +16,8 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  /// Avoids refetching the event catalog when the Home tab is recreated.
-  static List<Event>? _sessionEventsCache;
+  static bool _dataLoaded = false;
+  static List<Event> _cachedEvents = [];
 
   List<Event> _allEvents = [];
   List<Event> _filtered = [];
@@ -57,16 +57,23 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _loadData({bool forceRefreshEvents = false}) async {
     final uid = _uid;
     if (uid == null) return;
+
+    if (_dataLoaded && !forceRefreshEvents) {
+      if (!mounted) return;
+      setState(() {
+        _allEvents = _cachedEvents;
+        _filtered = _computeFiltered();
+        _loading = false;
+      });
+      return;
+    }
+
     if (mounted) {
       setState(() => _loading = true);
     }
-    final List<Event> events;
-    if (!forceRefreshEvents && _sessionEventsCache != null) {
-      events = _sessionEventsCache!;
-    } else {
-      events = await ApiService.fetchEvents(forceRefresh: forceRefreshEvents);
-      _sessionEventsCache = List<Event>.from(events);
-    }
+    final events = await ApiService.fetchEvents(forceRefresh: forceRefreshEvents);
+    _dataLoaded = true;
+    _cachedEvents = events;
     final bookings = await BookingService.getBookings(uid);
     if (!mounted) return;
     setState(() {
