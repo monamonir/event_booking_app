@@ -17,6 +17,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     with AutomaticKeepAliveClientMixin {
   String? _imagePath;
   int _bookingCount = 0;
+  int _upcomingCount = 0;
   final _authService = AuthService();
 
   // Keep the tab alive so the user doesn't lose scroll position,
@@ -50,10 +51,22 @@ class _ProfileScreenState extends State<ProfileScreen>
     // Pass uid so we only count this user's bookings
     final bookings = await BookingService.getBookings(uid);
 
+    final now = DateTime.now();
+    int upcomingCount = 0;
+    for (final booking in bookings) {
+      try {
+        final eventDate = DateTime.parse(booking.event.date);
+        if (eventDate.isAfter(now)) {
+          upcomingCount++;
+        }
+      } catch (_) {}
+    }
+
     if (mounted) {
       setState(() {
         _imagePath = path;
         _bookingCount = bookings.length;
+        _upcomingCount = upcomingCount;
       });
     }
   }
@@ -307,10 +320,8 @@ class _ProfileScreenState extends State<ProfileScreen>
                         count: _bookingCount.toString(), label: 'Bookings'),
                     Container(
                         height: 40, width: 1, color: Colors.grey.shade200),
-                    const _StatItem(count: '0', label: 'Upcoming'),
-                    Container(
-                        height: 40, width: 1, color: Colors.grey.shade200),
-                    const _StatItem(count: '0', label: 'Attended'),
+                    _StatItem(
+                        count: _upcomingCount.toString(), label: 'Upcoming'),
                   ],
                 ),
               ),
@@ -375,14 +386,46 @@ class _ProfileScreenState extends State<ProfileScreen>
                       icon: Icons.notifications_outlined,
                       label: 'Notifications',
                       iconColor: Colors.orange,
-                      onTap: () {},
+                      onTap: () {
+                        showDialog(
+                          context: context,
+                          builder: (_) => AlertDialog(
+                            title: const Text('Notifications'),
+                            content: const Text(
+                              'You will receive reminders for your upcoming events.',
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context),
+                                child: const Text('OK'),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
                     ),
                     const Divider(height: 1, indent: 54),
                     _ActionTile(
                       icon: Icons.help_outline,
                       label: 'Help & Support',
                       iconColor: Colors.green,
-                      onTap: () {},
+                      onTap: () {
+                        showDialog(
+                          context: context,
+                          builder: (_) => AlertDialog(
+                            title: const Text('Help & Support'),
+                            content: const Text(
+                              'For support, contact us at:\nsupport@eventbooking.com',
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context),
+                                child: const Text('Close'),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
                     ),
                     const Divider(height: 1, indent: 54),
                     _ActionTile(
